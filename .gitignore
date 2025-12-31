@@ -5,3 +5,5 @@ __pycache__/
 .DS_Store
 temp_uploads/
 .gemini/
+node_modules/
+package-lock.json

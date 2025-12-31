@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Oswald', sans-serif;
+
+  --color-background: #ffffff;
+  --color-foreground: #000000;
+  --color-accent: #ff00ff;
+
+  --shadow-neo: 8px 8px 0px 0px #000000;
+  --shadow-neo-hover: 4px 4px 0px 0px #000000;
+  --shadow-neo-active: 0px 0px 0px 0px #000000;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-black;
+    font-family: var(--font-sans);
+    /* Grid Background */
+    background-size: 24px 24px;
+    background-image:
+      linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  }
+}
+
+/* Noise overlay */
+.noise {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Neo-Brutalist Shadow Utility */
+.shadow-neo {
+  box-shadow: var(--shadow-neo);
+}
+
+.shadow-neo-hover {
+  box-shadow: var(--shadow-neo-hover);
+}

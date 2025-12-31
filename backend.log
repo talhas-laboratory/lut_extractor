@@ -1,0 +1,759 @@
+INFO:     Will watch for changes in these directories: ['/Users/talhauddin/software/LUT_extractor']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [33475] using StatReload
+INFO:     Started server process [33528]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+
+==================================================
+Session 9fd80960-aa5c-49c2-b08c-788d2493f4ee: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=17.8, std=23.6
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 9fd80960-aa5c-49c2-b08c-788d2493f4ee
+==================================================
+
+INFO:     127.0.0.1:50946 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 436 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:50946 - "GET /api/preview/9fd80960-aa5c-49c2-b08c-788d2493f4ee HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 129 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+[CRITIC] AI Feedback: The previous grade was perceptually too naturalistic, featuring clear blue skies and warm daylight skin tones lacking the signature 'Matrix' monochrome green cast. Key corrections included: 1) Mapping 'Pure_Blue' (Pin 36) and Cool Tones (9, 13, 27) aggressively towards Teal/Dark Cyan to neutralize the blue landscape water and sky. 2) Shifting 'Skin_Tone' pins (20, 28) away from orange/red towards a sickly yellow-green. 3) Crushing shadow pins (0, 4) with a specific green foundation (G > B > R) to emulate the film stock's characteristic toe.
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 3 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+[CRITIC] AI Feedback: I have adjusted the lattice to better match 'The Matrix' aesthetic. 1) BLACKS (Pin 0): Tightened the black point to reduce the green lift in deep shadows, restoring the shiny leather contrast. 2) SKIN TONES (Pins 5, 6, 28): Lifted the brightness (Luma) while maintaining the Green bias; the previous iteration was too dark/muddy for skin. 3) GLOBAL TINT: Tinted 'Pure_White' (Pin 33) to a pale Green/Cyan to unify the highlights. 4) DESATURATION: Aggressively crushed 'Pure_Red' (Pin 34) and 'Pure_Magenta' (Pin 38) to impose the monochromatic palette found in the reference.
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+[CRITIC] AI Feedback: The V1 Grade was too naturalistic; the landscape's sky and water retained too much deep blue, and the earth tones were too reddish-brown. To match the oppressive 'Matrix' reference, I aggressively shifted the 'Pure_Blue' and 'Cool_Tone' pins towards Green/Teal to murky up the sky. I also adjusted the 'Skin_Tone' and 'Warm_Tone_0' pins to lift the shadow floor into green and remove the healthy red saturation from midtones, creating that signature sickly, monochromatic green wash.
+INFO:     127.0.0.1:50946 - "POST /api/refine/9fd80960-aa5c-49c2-b08c-788d2493f4ee?max_rounds=4 HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/uvicorn/protocols/http/h11_impl.py", line 410, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 115, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 101, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 355, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 243, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/src/server.py", line 438, in refine_with_agentic_critic
+    tps = compute_chroma_tps_from_pins(pins_src, current_pins_tgt)
+  File "/Users/talhauddin/software/LUT_extractor/src/server.py", line 112, in compute_chroma_tps_from_pins
+    tps.fit(source_points=source_pins, target_points=target_pins)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/src/core/tps.py", line 33, in fit
+    raise ValueError("Source and target points must have the same shape.")
+ValueError: Source and target points must have the same shape.
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 46 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 94d12f50-260e-4cb7-83aa-1cc303b1bf54: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 94d12f50-260e-4cb7-83aa-1cc303b1bf54
+==================================================
+
+INFO:      - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 35 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 7c044be8-d275-4433-8046-a25bbf8db4d1: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 7c044be8-d275-4433-8046-a25bbf8db4d1
+==================================================
+
+INFO:     127.0.0.1:50979 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 29 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session d3cb2b52-53cf-41fb-97f1-8a0ebcf94aeb: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: d3cb2b52-53cf-41fb-97f1-8a0ebcf94aeb
+==================================================
+
+INFO:     127.0.0.1:50994 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 1302 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:50994 - "GET /api/preview/d3cb2b52-53cf-41fb-97f1-8a0ebcf94aeb HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+[CRITIC] AI Feedback: The result image was heavily biased towards magenta and warm hues, clashing with the reference's strict cool, teal-and-black palette. I have targeted the primary offending pins in the mid-to-high luminance range (Pins 6, 24, 27) to dramatically reduce Red channel influence and boost Blue/Green. Additionally, I shifted the 'Skin' and mid-tone pins (0, 14, 17) towards a moodier cyan to align with the atmospheric mountain shadows.
+INFO:     127.0.0.1:51155 - "POST /api/refine/d3cb2b52-53cf-41fb-97f1-8a0ebcf94aeb?max_rounds=4 HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/uvicorn/protocols/http/h11_impl.py", line 410, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/applications.py", line 1135, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/applications.py", line 107, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 115, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 101, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 355, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Users/talhauddin/software/LUT_extractor/venv/lib/python3.13/site-packages/fastapi/routing.py", line 243, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/src/server.py", line 438, in refine_with_agentic_critic
+    tps = compute_chroma_tps_from_pins(pins_src, current_pins_tgt)
+  File "/Users/talhauddin/software/LUT_extractor/src/server.py", line 112, in compute_chroma_tps_from_pins
+    tps.fit(source_points=source_pins, target_points=target_pins)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/talhauddin/software/LUT_extractor/src/core/tps.py", line 33, in fit
+    raise ValueError("Source and target points must have the same shape.")
+ValueError: Source and target points must have the same shape.
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [33528]
+INFO:     Started server process [34435]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 11 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 974b0009-a8aa-49c5-81ba-d43e2429be84: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=17.8, std=23.6
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 974b0009-a8aa-49c5-81ba-d43e2429be84
+==================================================
+
+INFO:     127.0.0.1:51225 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 1585 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51225 - "GET /api/preview/974b0009-a8aa-49c5-81ba-d43e2429be84 HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 41 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+[CRITIC] AI Feedback: The V1 Grade (Landscape) showed natural blues, pink-brown mountains, and vibrant yellows, which departed significantly from the Matrix Reference's monochromatic green palette. To correct this, I remapped 'Pure Blue' (water/sky) to a deep teal/cyan, desaturated the 'Warm_Tone' pins (mountains) and shifted them towards greenish-brown. The highlights (Pure White and Sky tones) were pulled towards a sickly green/white, and blacks were lifted slightly into green to emulate the reference's signature film stock look.
+INFO:     127.0.0.1:51225 - "POST /api/refine/974b0009-a8aa-49c5-81ba-d43e2429be84?max_rounds=1 HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 36 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 5135d9be-af80-4095-9708-d8ea227a1ade: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 5135d9be-af80-4095-9708-d8ea227a1ade
+==================================================
+
+INFO:     127.0.0.1:51237 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 3487 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51237 - "GET /api/preview/5135d9be-af80-4095-9708-d8ea227a1ade HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 3641 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+[CRITIC] AI Feedback: The result image was significantly too warm (orange/brown) and bright compared to the moody, desaturated teal/cyan reference. I effectively 'cooled' the entire lattice by reducing the Red channel and boosting Green/Blue in all Warm and Skin pins to mute the orange grass into the reference's rocky grey/blue. I also shifted the Cool tone pins (Sky/Water) from a punchy royal blue towards a greener 'cinema teal' to match the glacier and sky of the target.
+INFO:     127.0.0.1:51239 - "POST /api/refine/5135d9be-af80-4095-9708-d8ea227a1ade?max_rounds=1 HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [34435]
+INFO:     Started server process [34856]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [34856]
+INFO:     Started server process [34877]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 58 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 09739501-aca5-4b4b-8e34-688721168f01: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=17.8, std=23.6
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 09739501-aca5-4b4b-8e34-688721168f01
+==================================================
+
+INFO:     127.0.0.1:51415 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 15977 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51415 - "GET /api/preview/09739501-aca5-4b4b-8e34-688721168f01 HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 12405 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+[CRITIC] AI Feedback: The result image exhibited strong Magenta vs Green polarity errors (pink sky, orange grass) conflicting with the Matrix reference's strict Green/Cyan palette. The optimization aggressively reduced the Red and Blue channels in skin-tone, warm, and cool pins while boosting Green to neutralize the pink cast and unify the image under the characteristic Matrix green tint.
+INFO:     127.0.0.1:51415 - "POST /api/refine/09739501-aca5-4b4b-8e34-688721168f01?max_rounds=1 HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 7 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+[CRITIC] AI Feedback: The previous grade exhibited severe hue errors (Pink Skies, Orange Grass) inconsistent with the Matrix Reference. I have re-mapped the color space to enforce the 'Matrix Green' palette. Highlights are now tinted cyan-green, shadows are lifted with a teal cast to emulate film stock density, and skin tones are desaturated and shifted towards pale yellow-green (R<G>B relation) to match the sickly, institutional lighting of the reference. Pure primaries (Blue, Magenta, Red) have been aggressively desaturated and pulled towards the green vector to eliminate the false-color landscape artifacts.
+INFO:     127.0.0.1:51493 - "POST /api/refine/09739501-aca5-4b4b-8e34-688721168f01?max_rounds=1 HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [34877]
+INFO:     Started server process [35890]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'src/ai/agentic_critic.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [35890]
+INFO:     Started server process [35903]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+
+==================================================
+Session ff885b53-a8ab-4e91-8987-68285df793a2: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=17.8, std=23.6
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: ff885b53-a8ab-4e91-8987-68285df793a2
+==================================================
+
+INFO:     127.0.0.1:51560 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 3564 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51560 - "GET /api/preview/ff885b53-a8ab-4e91-8987-68285df793a2 HTTP/1.1" 200 OK
+[CRITIC] Calling google/gemini-3-pro-preview with reasoning.effort='high'...
+[CRITIC] AI Feedback: Corrected the V1 pink/magenta bias by shifting key midtone and highlight coordinates (notably Pins 9, 18, 21, and 24) away from red/orange towards the desaturated green/cyan spectrum characteristic of the Matrix reference. Enhanced Green channel gain in highlight rolloff (Pin 28) to replicate the signature green tint in the sky and bright areas.
+[CRITIC] DEBUG: Received 40 pins from AI, expected 40
+[CRITIC] ✓ Shape OK. Applying AI-optimized pins.
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 4139 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51560 - "POST /api/refine/ff885b53-a8ab-4e91-8987-68285df793a2?max_rounds=1 HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [35903]
+INFO:     Started server process [36003]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+
+==================================================
+Session 2183bdc7-e877-4bf1-8cab-4fed7ec9ca9f: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=17.8, std=23.6
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 2183bdc7-e877-4bf1-8cab-4fed7ec9ca9f
+==================================================
+
+INFO:     127.0.0.1:51619 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 3371 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51619 - "GET /api/preview/2183bdc7-e877-4bf1-8cab-4fed7ec9ca9f HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 1008 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+AI COLOR SCIENTIST REFINEMENT
+Session: 2183bdc7-e877-4bf1-8cab-4fed7ec9ca9f
+Max rounds: 1
+==================================================
+
+[Round 1/1]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently far too magenta and warm compared to the iconic green-tinted, high-contrast Matrix reference. I have introduced a heavy green shift and blue offset to neutralize the pink sky, while deepening the shadows to match the reference's crushed black levels.
+  Satisfied: False
+  New params: {'saturation_boost': 1.02, 'luma_strength': 0.8, 'blue_shift': 12.0, 'green_shift': -18.0, 'shadow_adjust': -10.0, 'highlight_adjust': -5.0}
+
+✓ Refinement complete after 1 rounds
+==================================================
+
+INFO:     127.0.0.1:51619 - "POST /api/refine/2183bdc7-e877-4bf1-8cab-4fed7ec9ca9f?max_rounds=1 HTTP/1.1" 200 OK
+
+==================================================
+Session 81904638-68ec-44b2-9d8a-b85318277f04: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 81904638-68ec-44b2-9d8a-b85318277f04
+==================================================
+
+INFO:     127.0.0.1:51641 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 399 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51641 - "GET /api/preview/81904638-68ec-44b2-9d8a-b85318277f04 HTTP/1.1" 200 OK
+
+==================================================
+AI COLOR SCIENTIST REFINEMENT
+Session: 81904638-68ec-44b2-9d8a-b85318277f04
+Max rounds: 4
+==================================================
+
+[Round 1/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is significantly over-saturated and too warm compared to the moody, desaturated teal-and-orange aesthetic of the reference. I have deepened the shadows and shifted the white balance toward blue/cyan to match the cold mountain atmosphere.
+  Satisfied: False
+  New params: {'saturation_boost': 1.02, 'luma_strength': 0.8, 'blue_shift': -8.5, 'green_shift': 4.0, 'shadow_adjust': -12.0, 'highlight_adjust': -5.0}
+
+[Round 2/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently too warm and magenta-heavy compared to the cool, cyan-leaning teal of the reference. I have significantly deepened the shadows and shifted the color balance toward blue/cyan while desaturating the overall image to match the reference's moody, low-key atmosphere.
+  Satisfied: False
+  New params: {'saturation_boost': 0.867, 'luma_strength': 0.9, 'blue_shift': -20.5, 'green_shift': -2.5, 'shadow_adjust': -26.5, 'highlight_adjust': -13.0}
+
+[Round 3/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently too blue and saturated compared to the desaturated, moody teal-pink palette of the reference. I have shifted the white balance away from blue/magenta toward a warmer/greener tone and lifted the highlights to match the reference's sky luminance.
+  Satisfied: False
+  New params: {'saturation_boost': 0.73695, 'luma_strength': 0.95, 'blue_shift': -12.0, 'green_shift': 1.5, 'shadow_adjust': -30, 'highlight_adjust': -1.0}
+
+[Round 4/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently too magenta and oversaturated compared to the cooler, more desaturated teal-blue aesthetic of the reference. I have introduced a positive blue shift and negative green shift to counter the purple cast, while lowering saturation and deepening shadows to match the reference's high-contrast, cinematic tone.
+  Satisfied: False
+  New params: {'saturation_boost': 0.6264075, 'luma_strength': 0.85, 'blue_shift': -7.0, 'green_shift': -2.0, 'shadow_adjust': -30, 'highlight_adjust': 5.0}
+
+✓ Refinement complete after 4 rounds
+==================================================
+
+INFO:     127.0.0.1:51641 - "POST /api/refine/81904638-68ec-44b2-9d8a-b85318277f04?max_rounds=4 HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 47 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 194bd6cd-ee60-47a3-b825-cc8c2df0f8ad: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[1/3] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=31.5, std=25.7
+  ✓ Luma transfer function computed
+
+[2/3] BASELINE: Using source as V1 neutral base...
+
+[3/3] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+Generating visualization lattice...
+
+✓ Analysis complete. Session: 194bd6cd-ee60-47a3-b825-cc8c2df0f8ad
+==================================================
+
+INFO:     127.0.0.1:51652 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 6409 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51652 - "GET /api/preview/194bd6cd-ee60-47a3-b825-cc8c2df0f8ad HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 796 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+/Users/talhauddin/software/LUT_extractor/src/server.py:182: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 2 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+AI COLOR SCIENTIST REFINEMENT
+Session: 194bd6cd-ee60-47a3-b825-cc8c2df0f8ad
+Max rounds: 4
+==================================================
+
+[Round 1/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is heavily oversaturated with a severe magenta/red cast that deviates entirely from the desaturated, cool-toned urban reference. I have significantly reduced saturation and applied strong green and blue shifts to neutralize the warmth and align the palette with the reference's moody, cyan-leaning aesthetic.
+  Satisfied: False
+  New params: {'saturation_boost': 0.8999999999999999, 'luma_strength': 0.8, 'blue_shift': 12.5, 'green_shift': 15.0, 'shadow_adjust': -10.0, 'highlight_adjust': -5.0}
+
+[Round 2/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The current grade is suffering from a severe magenta/red cast and excessive saturation compared to the desaturated, cool-toned urban reference. I have significantly reduced the green and blue shifts to pull the image away from pink/orange tones and lowered saturation to better match the reference's muted palette.
+  Satisfied: False
+  New params: {'saturation_boost': 0.6749999999999999, 'luma_strength': 0.9, 'blue_shift': -2.5, 'green_shift': -3.0, 'shadow_adjust': -15.0, 'highlight_adjust': 3.0}
+
+[Round 3/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is heavily oversaturated with a strong magenta/pink cast in the sky and highlights that does not match the desaturated, moody teal-orange palette of the reference. I have reduced saturation, shifted the tint significantly toward green and blue to neutralize the pinks, and darkened the highlights to match the reference's compressed dynamic range.
+  Satisfied: False
+  New params: {'saturation_boost': 0.57375, 'luma_strength': 0.95, 'blue_shift': 2.0, 'green_shift': -9.0, 'shadow_adjust': -20.0, 'highlight_adjust': -5.0}
+
+[Round 4/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently too warm and magenta compared to the desaturated, cool-toned urban reference. I have reduced saturation, shifted the tint toward green to counter the magenta cast, and cooled the temperature while deepening shadows to match the high-contrast architectural look.
+  Satisfied: False
+  New params: {'saturation_boost': 0.5, 'luma_strength': 0.9, 'blue_shift': -2.5, 'green_shift': -3.0, 'shadow_adjust': -25.0, 'highlight_adjust': 3.0}
+
+✓ Refinement complete after 4 rounds
+==================================================
+
+INFO:     127.0.0.1:51652 - "POST /api/refine/194bd6cd-ee60-47a3-b825-cc8c2df0f8ad?max_rounds=4 HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36003]
+INFO:     Started server process [36102]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36102]
+INFO:     Started server process [36114]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 13 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session 1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[0/4] SEMANTIC GUIDE: Analyzing images with LLM...
+[GUIDE] Analyzing images for semantic hints...
+[GUIDE] Semantic analysis: The target look is a cool, desaturated, and contrasty cinematic style with crushed shadows and rolled-off highlights.
+[GUIDE] Luma: 0.7, Color: cool
+  ✓ LLM suggests: luma_strength=0.7, saturation=0.9
+  ✓ Look: The target look is a cool, desaturated, and contrasty cinematic style with crushed shadows and rolled-off highlights.
+
+[1/4] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed (strength=0.7)
+
+[2/4] BASELINE: Using source as V1 neutral base...
+
+[3/4] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+[4/4] Generating visualization lattice...
+
+✓ Analysis complete. Session: 1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c
+==================================================
+
+INFO:     127.0.0.1:51710 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 2717 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51710 - "GET /api/preview/1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 837 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 161 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 4 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+AI COLOR SCIENTIST REFINEMENT
+Session: 1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c
+Max rounds: 4
+==================================================
+
+[Round 1/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The current grade is far too warm and magenta compared to the cool, cyan-leaning reference; I have introduced a significant blue shift and green shift to neutralize the pink cast. I also increased luma strength and deepened shadows to match the high-contrast, moody atmosphere of the target image.
+  Satisfied: False
+  New params: {'saturation_boost': 1.02, 'luma_strength': 0.75, 'blue_shift': -12.5, 'green_shift': 8.0, 'shadow_adjust': -6.0, 'highlight_adjust': -4.0}
+
+[Round 2/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image has a severe magenta/pink cast and lacks the deep, cool contrast of the reference. I am aggressively shifting the color balance away from magenta/red and deepening the shadows to match the moody, blue-cyan atmosphere of the target.
+  Satisfied: False
+  New params: {'saturation_boost': 0.867, 'luma_strength': 0.85, 'blue_shift': -30, 'green_shift': -7.0, 'shadow_adjust': -14.0, 'highlight_adjust': 1.0}
+
+[Round 3/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently too magenta and overly vibrant compared to the desaturated, teal-leaning reference. I have reduced saturation, shifted the tint away from magenta toward green, and deepened the shadows to better match the reference's moody, high-contrast aesthetic.
+  Satisfied: False
+  New params: {'saturation_boost': 0.73695, 'luma_strength': 0.9, 'blue_shift': -30, 'green_shift': -2.0, 'shadow_adjust': -20.0, 'highlight_adjust': -3.0}
+
+[Round 4/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The current grade has a heavy magenta/purple cast and excessive saturation compared to the cooler, more naturalistic reference. I have shifted the balance away from magenta (positive green shift) and reduced the blue-yellow tint (positive blue shift) while lifting highlights to match the reference's airy sky.
+  Satisfied: False
+  New params: {'saturation_boost': 0.6264075, 'luma_strength': 0.95, 'blue_shift': -18.0, 'green_shift': 2.0, 'shadow_adjust': -25.0, 'highlight_adjust': 5.0}
+
+✓ Refinement complete after 4 rounds
+==================================================
+
+INFO:     127.0.0.1:51710 - "POST /api/refine/1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c?max_rounds=4 HTTP/1.1" 200 OK
+
+==================================================
+AI COLOR SCIENTIST REFINEMENT
+Session: 1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c
+Max rounds: 4
+==================================================
+
+[Round 1/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The current grade is heavily oversaturated and has a strong magenta/purple cast compared to the cool, desaturated teal-blue aesthetic of the reference. I have reduced saturation and shifted the green/blue balance to remove the purple tint and better align with the reference's colder, more cinematic palette.
+  Satisfied: False
+  New params: {'saturation_boost': 0.532446375, 'luma_strength': 0.9, 'blue_shift': -23.0, 'green_shift': -6.0, 'shadow_adjust': -30, 'highlight_adjust': 15.0}
+
+[Round 2/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The graded image is currently too magenta-heavy and lacks the deep teal/cyan shadows of the reference. I have shifted the balance away from magenta/blue toward a more natural cyan-green and reduced saturation to match the reference's more muted, cinematic palette.
+  Satisfied: False
+  New params: {'saturation_boost': 0.5, 'luma_strength': 0.95, 'blue_shift': -15.0, 'green_shift': -2.0, 'shadow_adjust': -30, 'highlight_adjust': 25.0}
+
+[Round 3/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The current grade is too magenta and warm compared to the cool, cyan-leaning blue hour aesthetic of the reference. I have shifted the balance toward blue/cyan and reduced the highlight brightness to better match the reference's compressed dynamic range and desaturated palette.
+  Satisfied: False
+  New params: {'saturation_boost': 0.5, 'luma_strength': 0.9, 'blue_shift': -7.0, 'green_shift': 2.5, 'shadow_adjust': -30, 'highlight_adjust': 15.0}
+
+[Round 4/4]
+  Calling OpenRouter (google/gemini-3-flash-preview)...
+  AI Feedback: The current grade is significantly too magenta and warm compared to the teal/cyan atmosphere of the reference. I have pushed the blue and green shifts to counteract the purple cast and lowered the highlights to match the moody, underexposed sky of the target.
+  Satisfied: False
+  New params: {'saturation_boost': 0.5, 'luma_strength': 0.95, 'blue_shift': -19.0, 'green_shift': 9.0, 'shadow_adjust': -30, 'highlight_adjust': 7.0}
+
+✓ Refinement complete after 4 rounds
+==================================================
+
+INFO:     127.0.0.1:51722 - "POST /api/refine/1b2f6b6c-b9eb-49cb-927b-f56dc0f0480c?max_rounds=4 HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 28 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+
+==================================================
+Session b538a1ae-eeb3-4948-8617-4de60b9d6e64: HYBRID LUMA-CHROMA PIPELINE
+==================================================
+
+[0/4] SEMANTIC GUIDE: Analyzing images with LLM...
+[GUIDE] Analyzing images for semantic hints...
+[GUIDE] Semantic analysis: The target look is a cool, desaturated, and contrasty cinematic style with crushed shadows and rolled-off highlights.
+[GUIDE] Luma: 0.7, Color: cool
+  ✓ LLM suggests: luma_strength=0.7, saturation=0.9
+  ✓ Look: The target look is a cool, desaturated, and contrasty cinematic style with crushed shadows and rolled-off highlights.
+
+[1/4] LUMA ANCHOR: User → Reference histogram matching...
+  Source L: mean=57.0, std=16.8
+  Reference L: mean=34.8, std=24.5
+  ✓ Luma transfer function computed (strength=0.7)
+
+[2/4] BASELINE: Using source as V1 neutral base...
+
+[3/4] CHROMA WARP: Computing TPS for RGB pins...
+  ✓ Chroma TPS fitted with 40 pins
+
+[4/4] Generating visualization lattice...
+
+✓ Analysis complete. Session: b538a1ae-eeb3-4948-8617-4de60b9d6e64
+==================================================
+
+INFO:     127.0.0.1:51728 - "POST /api/analyze HTTP/1.1" 200 OK
+/Users/talhauddin/software/LUT_extractor/src/server.py:183: UserWarning: Conversion from CIE-LAB, via XYZ to sRGB color space resulted in 2897 negative Z values that have been clipped to zero
+  graded_rgb = color.lab2rgb(graded_lab)
+INFO:     127.0.0.1:51728 - "GET /api/preview/b538a1ae-eeb3-4948-8617-4de60b9d6e64 HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'src/server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36114]
+INFO:     Started server process [36421]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [36421]
+INFO:     Stopping reloader process [33475]

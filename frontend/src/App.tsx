@@ -4,10 +4,23 @@ import axios from 'axios';
 import { UploadNode } from './components/UploadNode';
 import { LatticeVisualizer } from './components/LatticeVisualizer';
 import { ComparisonSlider } from './components/ComparisonSlider';
-import { Download, AlertCircle, Cpu, Eye, Sparkles, CheckCircle } from 'lucide-react';
+import { Download, AlertCircle, Cpu, Eye, Sparkles, CheckCircle, Zap, Palette, Sliders, Target, Beaker, Send, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Types
+
+interface OperationLogEntry {
+  stage: string;
+  action: string;
+  params: Record<string, any>;
+}
+
+interface DirectorParams {
+  normalization: Record<string, number>;
+  tone_curve: Record<string, any>;
+  palette_identity: Record<string, any>;
+  selective_corrections: Record<string, any>;
+}
 
 interface AnalysisResponse {
   session_id: string;
@@ -15,6 +28,8 @@ interface AnalysisResponse {
   warped_points: number[][];
   pins_source: number[][];
   pins_target: number[][];
+  operations_log?: OperationLogEntry[];
+  director_params?: DirectorParams;
 }
 
 interface RefinementRound {
@@ -30,6 +45,61 @@ interface RefineResponse {
   final_params: Record<string, number>;
   history: RefinementRound[];
   preview: string;
+}
+
+// AI Recipe types
+interface ColorRecipe {
+  exposure_mult: number;
+  brightness_offset: number;
+  a_channel_shift: number;
+  b_channel_shift: number;
+  saturation_mult: number;
+  shadow_a: number;
+  shadow_b: number;
+  midtone_a: number;
+  midtone_b: number;
+  highlight_a: number;
+  highlight_b: number;
+  description: string;
+}
+
+interface AIRecipeResponse {
+  session_id: string;
+  recipe: ColorRecipe;
+  workflow: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _unusedTypeCheck: AIRecipeResponse | null = null;
+
+// Vibe Replicator types
+interface VibeAnalysis {
+  vibe_description: string;
+  mood_keywords: string[];
+  color_grading_style: string;
+  technical_observations: Record<string, any>;
+}
+
+interface GradingInstructions {
+  exposure_adjustment: number;
+  contrast_curve: string;
+  contrast_strength: number;
+  shadow_a: number;
+  shadow_b: number;
+  midtone_a: number;
+  midtone_b: number;
+  highlight_a: number;
+  highlight_b: number;
+  saturation_mult: number;
+  special_notes: string[];
+  description: string;
+}
+
+interface CritiqueResult {
+  vibe_match_score: number;
+  issues_found: string[];
+  satisfied: boolean;
+  feedback: string;
 }
 
 function App() {
@@ -49,6 +119,19 @@ function App() {
   const [isRefining, setIsRefining] = useState(false);
   const [refinementHistory, setRefinementHistory] = useState<RefinementRound[]>([]);
   const [isRefined, setIsRefined] = useState(false);
+
+  // AI Recipe workflow state
+  const [workflowType, setWorkflowType] = useState<'tps' | 'ai_recipe' | 'vibe'>('tps');
+  const [aiRecipe, setAiRecipe] = useState<ColorRecipe | null>(null);
+  const [aiSessionId, setAiSessionId] = useState<string | null>(null);
+  const [refinementInput, setRefinementInput] = useState('');
+  const [isRefiningAi, setIsRefiningAi] = useState(false);
+
+  // Vibe Replicator workflow state
+  const [vibeAnalysis, setVibeAnalysis] = useState<VibeAnalysis | null>(null);
+  const [vibeInstructions, setVibeInstructions] = useState<GradingInstructions | null>(null);
+  const [vibeCritiqueHistory, setVibeCritiqueHistory] = useState<CritiqueResult[]>([]);
+  const [vibeSessionId, setVibeSessionId] = useState<string | null>(null);
 
   // Create preview URL for source image when selected
   useEffect(() => {
@@ -123,8 +206,112 @@ function App() {
   };
 
   const handleDownload = async () => {
-    if (!session) return;
-    window.location.href = `http://localhost:8000/api/download/${session.session_id}`;
+    if (!session && !aiSessionId && !vibeSessionId) return;
+    let sessionToUse: string | undefined;
+    let endpoint: string;
+
+    if (workflowType === 'vibe' && vibeSessionId) {
+      sessionToUse = vibeSessionId;
+      endpoint = 'download-vibe';
+    } else if (workflowType === 'ai_recipe' && aiSessionId) {
+      sessionToUse = aiSessionId;
+      endpoint = 'download-ai';
+    } else {
+      sessionToUse = session?.session_id;
+      endpoint = 'download';
+    }
+
+    if (sessionToUse) {
+      window.location.href = `http://localhost:8000/api/${endpoint}/${sessionToUse}`;
+    }
+  };
+
+  // AI Recipe Workflow handlers
+  const handleAnalyzeAI = async () => {
+    if (!refFile || !srcFile) return;
+    setIsLoading(true);
+    setError(null);
+    setGradedPreviewUrl(null);
+    setAiRecipe(null);
+    setWorkflowType('ai_recipe');
+
+    const formData = new FormData();
+    formData.append('reference', refFile);
+    formData.append('source', srcFile);
+
+    try {
+      const res = await axios.post('http://localhost:8000/api/analyze-ai', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setAiSessionId(res.data.session_id);
+      setAiRecipe(res.data.recipe);
+
+      // Fetch preview
+      const previewRes = await axios.get(`http://localhost:8000/api/preview-ai/${res.data.session_id}`);
+      setGradedPreviewUrl(previewRes.data.preview);
+      setViewMode('compare');
+    } catch (e: any) {
+      console.error(e);
+      setError(e.response?.data?.message || "AI Recipe generation failed.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefineAI = async () => {
+    if (!aiSessionId || !refinementInput.trim()) return;
+    setIsRefiningAi(true);
+    setError(null);
+
+    try {
+      const res = await axios.post(
+        `http://localhost:8000/api/refine-ai/${aiSessionId}?feedback=${encodeURIComponent(refinementInput)}`
+      );
+      setAiRecipe(res.data.recipe);
+      setGradedPreviewUrl(res.data.preview);
+      setRefinementInput('');
+    } catch (e: any) {
+      console.error(e);
+      setError(e.response?.data?.detail || "AI refinement failed.");
+    } finally {
+      setIsRefiningAi(false);
+    }
+  };
+
+  // Vibe Replicator Workflow handler
+  const handleAnalyzeVibe = async () => {
+    if (!refFile || !srcFile) return;
+    setIsLoading(true);
+    setError(null);
+    setGradedPreviewUrl(null);
+    setVibeAnalysis(null);
+    setVibeInstructions(null);
+    setVibeCritiqueHistory([]);
+    setWorkflowType('vibe');
+
+    const formData = new FormData();
+    formData.append('reference', refFile);
+    formData.append('source', srcFile);
+
+    try {
+      const res = await axios.post('http://localhost:8000/api/analyze-vibe', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setVibeSessionId(res.data.session_id);
+      setVibeAnalysis(res.data.vibe_analysis);
+      setVibeInstructions(res.data.final_instructions);
+      setVibeCritiqueHistory(res.data.critique_history);
+
+      // Fetch preview
+      const previewRes = await axios.get(`http://localhost:8000/api/preview-vibe/${res.data.session_id}`);
+      setGradedPreviewUrl(previewRes.data.preview);
+      setViewMode('compare');
+    } catch (e: any) {
+      console.error(e);
+      setError(e.response?.data?.message || "Vibe Replicator failed.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -156,13 +343,43 @@ function App() {
               onClick={handleAnalyze}
               whileHover={(!refFile || !srcFile || isLoading) ? {} : { scale: 1.05 }}
               whileTap={(!refFile || !srcFile || isLoading) ? {} : { scale: 0.95 }}
-              className={`w-32 h-32 rounded-full border-4 border-black flex flex-col items-center justify-center shadow-neo transition-all bg-white
+              className={`w-28 h-28 rounded-full border-4 border-black flex flex-col items-center justify-center shadow-neo transition-all bg-white
                             ${(!refFile || !srcFile) ? 'opacity-50 cursor-not-allowed' : ''}
-                            ${isLoading ? 'animate-pulse bg-accent' : ''}`}
+                            ${isLoading && workflowType === 'tps' ? 'animate-pulse bg-accent' : ''}`}
             >
-              <Cpu className={`w-12 h-12 mb-2 ${isLoading ? 'animate-spin' : ''}`} />
-              <span className="font-display font-bold text-sm">
-                {isLoading ? "EXTRACTING..." : "EXTRACT DNA"}
+              <Cpu className={`w-10 h-10 mb-1 ${isLoading && workflowType === 'tps' ? 'animate-spin' : ''}`} />
+              <span className="font-display font-bold text-xs text-center">
+                {isLoading && workflowType === 'tps' ? "EXTRACTING..." : "EXTRACT DNA"}
+              </span>
+            </motion.button>
+
+            <motion.button
+              disabled={!refFile || !srcFile || isLoading}
+              onClick={handleAnalyzeAI}
+              whileHover={(!refFile || !srcFile || isLoading) ? {} : { scale: 1.05 }}
+              whileTap={(!refFile || !srcFile || isLoading) ? {} : { scale: 0.95 }}
+              className={`w-28 h-28 rounded-full border-4 border-black flex flex-col items-center justify-center shadow-neo transition-all bg-gradient-to-br from-purple-100 to-blue-100
+                            ${(!refFile || !srcFile) ? 'opacity-50 cursor-not-allowed' : ''}
+                            ${isLoading && workflowType === 'ai_recipe' ? 'animate-pulse bg-purple-300' : ''}`}
+            >
+              <Beaker className={`w-10 h-10 mb-1 ${isLoading && workflowType === 'ai_recipe' ? 'animate-spin' : ''}`} />
+              <span className="font-display font-bold text-xs text-center">
+                {isLoading && workflowType === 'ai_recipe' ? "GENERATING..." : "AI RECIPE"}
+              </span>
+            </motion.button>
+
+            <motion.button
+              disabled={!refFile || !srcFile || isLoading}
+              onClick={handleAnalyzeVibe}
+              whileHover={(!refFile || !srcFile || isLoading) ? {} : { scale: 1.05 }}
+              whileTap={(!refFile || !srcFile || isLoading) ? {} : { scale: 0.95 }}
+              className={`w-28 h-28 rounded-full border-4 border-black flex flex-col items-center justify-center shadow-neo transition-all bg-gradient-to-br from-amber-100 to-orange-100
+                            ${(!refFile || !srcFile) ? 'opacity-50 cursor-not-allowed' : ''}
+                            ${isLoading && workflowType === 'vibe' ? 'animate-pulse bg-amber-300' : ''}`}
+            >
+              <Wand2 className={`w-10 h-10 mb-1 ${isLoading && workflowType === 'vibe' ? 'animate-spin' : ''}`} />
+              <span className="font-display font-bold text-xs text-center">
+                {isLoading && workflowType === 'vibe' ? "ANALYZING..." : "VIBE"}
               </span>
             </motion.button>
           </div>
@@ -179,7 +396,7 @@ function App() {
         )}
 
         {/* Visualizer Area */}
-        {session && (
+        {(session || aiRecipe || vibeAnalysis) && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -224,7 +441,7 @@ function App() {
                     beforeImage={srcPreviewUrl}
                     afterImage={gradedPreviewUrl}
                     beforeLabel="ORIGINAL"
-                    afterLabel={isRefined ? "AI REFINED" : "GRADED"}
+                    afterLabel={isRefined ? "AI REFINED" : workflowType === 'vibe' ? "VIBE GRADED" : "GRADED"}
                   />
                 ) : viewMode === 'result' && gradedPreviewUrl ? (
                   <div className="w-full h-full border-4 border-black shadow-neo overflow-hidden bg-black">
@@ -238,12 +455,16 @@ function App() {
                   <div className="w-full h-full bg-gray-200 border-4 border-black flex items-center justify-center font-mono">
                     <div className="animate-pulse">Generating Preview...</div>
                   </div>
-                ) : (
+                ) : session ? (
                   <div className="shadow-neo h-full">
                     <LatticeVisualizer
                       originalPoints={session.original_points}
                       warpedPoints={session.warped_points}
                     />
+                  </div>
+                ) : (
+                  <div className="w-full h-full bg-gray-200 border-4 border-black flex items-center justify-center font-mono">
+                    <div>AI Recipe Mode - No lattice visualization</div>
                   </div>
                 )}
               </div>
@@ -253,10 +474,146 @@ function App() {
                 <h3 className="font-display text-xl uppercase border-b-2 border-black pb-2">Control Deck</h3>
 
                 <div className="font-mono text-xs space-y-1 text-gray-500">
-                  <p>PINS: {session.pins_source.length}</p>
-                  <p>TPS: 0.01</p>
-                  <p>STATUS: {isRefined ? '✓ AI REFINED' : 'INITIAL'}</p>
+                  {workflowType === 'tps' && session ? (
+                    <>
+                      <p>PINS: {session.pins_source.length}</p>
+                      <p>TPS: 0.01</p>
+                      <p>STATUS: {isRefined ? '✓ AI REFINED' : 'INITIAL'}</p>
+                    </>
+                  ) : workflowType === 'vibe' && vibeAnalysis ? (
+                    <>
+                      <p>MODE: VIBE REPLICATOR</p>
+                      <p>ITERATIONS: {vibeCritiqueHistory.length}</p>
+                      <p>SCORE: {vibeCritiqueHistory.length > 0 ? `${vibeCritiqueHistory[vibeCritiqueHistory.length - 1].vibe_match_score}/10` : 'N/A'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>MODE: AI RECIPE</p>
+                      <p>STATUS: {aiRecipe ? '✓ GENERATED' : 'PENDING'}</p>
+                    </>
+                  )}
                 </div>
+
+                {/* AI Recipe Display */}
+                {workflowType === 'ai_recipe' && aiRecipe && (
+                  <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-300 p-3 space-y-2 rounded">
+                    <div className="font-display text-xs uppercase text-blue-700 flex items-center gap-1 border-b border-blue-200 pb-2">
+                      <Beaker className="w-3 h-3" />
+                      Color DNA Recipe
+                    </div>
+                    <p className="text-xs text-gray-600 italic">{aiRecipe.description}</p>
+                    <div className="grid grid-cols-2 gap-1 text-xs font-mono">
+                      <div className="text-green-600">a-shift: {aiRecipe.a_channel_shift?.toFixed(1)}</div>
+                      <div className="text-blue-600">b-shift: {aiRecipe.b_channel_shift?.toFixed(1)}</div>
+                      <div>exposure: {aiRecipe.exposure_mult?.toFixed(2)}</div>
+                      <div>sat: {aiRecipe.saturation_mult?.toFixed(2)}</div>
+                    </div>
+                    <div className="text-xs font-mono space-y-0.5 border-t border-blue-200 pt-2 mt-2">
+                      <div className="text-gray-500">Zone Tints:</div>
+                      <div>Shadow: a={aiRecipe.shadow_a?.toFixed(1)}, b={aiRecipe.shadow_b?.toFixed(1)}</div>
+                      <div>Mid: a={aiRecipe.midtone_a?.toFixed(1)}, b={aiRecipe.midtone_b?.toFixed(1)}</div>
+                      <div>High: a={aiRecipe.highlight_a?.toFixed(1)}, b={aiRecipe.highlight_b?.toFixed(1)}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Recipe Refinement Input */}
+                {workflowType === 'ai_recipe' && aiSessionId && (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. 'More green' or 'Warmer highlights'"
+                      value={refinementInput}
+                      onChange={(e) => setRefinementInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleRefineAI()}
+                      className="w-full border-2 border-black px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                    <button
+                      onClick={handleRefineAI}
+                      disabled={isRefiningAi || !refinementInput.trim()}
+                      className={`w-full py-2 font-display text-sm uppercase border-2 border-black transition-all flex items-center justify-center gap-2
+                        ${isRefiningAi ? 'bg-purple-200 animate-pulse' : 'bg-purple-100 hover:bg-purple-200 hover:shadow-brutal'}
+                        ${!refinementInput.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <Send className={`w-4 h-4 ${isRefiningAi ? 'animate-spin' : ''}`} />
+                      {isRefiningAi ? 'REFINING...' : 'REFINE RECIPE'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Vibe Replicator Display */}
+                {workflowType === 'vibe' && vibeAnalysis && (
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 p-3 space-y-2 rounded">
+                    <div className="font-display text-xs uppercase text-amber-700 flex items-center gap-1 border-b border-amber-200 pb-2">
+                      <Wand2 className="w-3 h-3" />
+                      Vibe Analysis
+                    </div>
+                    <p className="text-xs text-gray-700 font-medium">"{vibeAnalysis.vibe_description}"</p>
+                    <div className="flex flex-wrap gap-1">
+                      {vibeAnalysis.mood_keywords.map((kw, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs rounded-full">{kw}</span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-600 italic">{vibeAnalysis.color_grading_style}</p>
+
+                    {/* Grading Instructions */}
+                    {vibeInstructions && (
+                      <div className="border-t border-amber-200 pt-2 mt-2">
+                        <div className="text-xs font-mono space-y-0.5">
+                          <div className="text-gray-500 mb-1">Instructions:</div>
+                          <div>Contrast: {vibeInstructions.contrast_curve} @ {vibeInstructions.contrast_strength?.toFixed(1)}</div>
+                          <div>Shadow: a={vibeInstructions.shadow_a?.toFixed(0)}, b={vibeInstructions.shadow_b?.toFixed(0)}</div>
+                          <div>Mid: a={vibeInstructions.midtone_a?.toFixed(0)}, b={vibeInstructions.midtone_b?.toFixed(0)}</div>
+                          <div>Sat: {vibeInstructions.saturation_mult?.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Critique History */}
+                    {vibeCritiqueHistory.length > 0 && (
+                      <div className="border-t border-amber-200 pt-2 mt-2">
+                        <div className="text-xs text-gray-500 mb-1">Critique Rounds:</div>
+                        {vibeCritiqueHistory.map((c, i) => (
+                          <div key={i} className="text-xs font-mono flex items-center gap-1 py-0.5">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${c.satisfied ? 'bg-green-500' : 'bg-amber-500'}`}>
+                              {c.vibe_match_score}
+                            </span>
+                            <span className="text-gray-600 truncate">{c.feedback}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* AI Colorist Log */}
+                {session?.operations_log && session.operations_log.length > 0 && (
+                  <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-300 p-3 space-y-2 rounded">
+                    <div className="font-display text-xs uppercase text-purple-700 flex items-center gap-1 border-b border-purple-200 pb-2">
+                      <Zap className="w-3 h-3" />
+                      AI Colorist Log
+                    </div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {session.operations_log.map((entry, idx) => (
+                        <div key={idx} className="text-xs font-mono border-l-2 pl-2" style={{
+                          borderColor: entry.stage === 'normalization' ? '#f59e0b' :
+                            entry.stage === 'tone' ? '#3b82f6' :
+                              entry.stage === 'palette' ? '#8b5cf6' :
+                                entry.stage === 'selective' ? '#10b981' : '#6b7280'
+                        }}>
+                          <div className="flex items-center gap-1 text-gray-500 uppercase" style={{ fontSize: '10px' }}>
+                            {entry.stage === 'normalization' && <Sliders className="w-3 h-3 text-amber-500" />}
+                            {entry.stage === 'tone' && <Sliders className="w-3 h-3 text-blue-500" />}
+                            {entry.stage === 'palette' && <Palette className="w-3 h-3 text-purple-500" />}
+                            {entry.stage === 'selective' && <Target className="w-3 h-3 text-green-500" />}
+                            {entry.stage}
+                          </div>
+                          <p className="text-gray-700 mt-0.5">{entry.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* AI Refine Button */}
                 <button

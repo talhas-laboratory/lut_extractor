@@ -17,10 +17,17 @@ from src.io.loader import load_image, save_image
 from src.ai.color_scientist import ColorScientist, apply_ai_adjustments
 from src.ai.agentic_critic import AgenticCritic
 from src.ai.semantic_guide import SemanticGuide
+from src.ai.director import ColorDirector  # NEW: Agentic Colorist Director
+from src.ai.ai_guided_transfer import AIGuidedTransfer, ColorRecipe, apply_ai_recipe  # AI Recipe workflow
+from src.ai.vibe_replicator import VibeReplicator, apply_grading_instructions, GradingInstructions  # NEW: Vibe Replicator workflow
 from src.core.tps import ThinPlateSpline
-from src.core.pins import compute_pins_with_labels, pins_to_json, json_to_pins
+from src.core.pins import (
+    compute_pins_with_labels, pins_to_json, json_to_pins,
+    apply_selective_shifts, create_palette_pins_from_casts  # NEW: Selective corrections
+)
 from src.core.palette_extractor import PaletteExtractor, compute_tps_from_palette, apply_zone_tints
 from src.core.color_codebook import ColorCodeExtractor
+from src.core.normalization import apply_normalization  # NEW: Pre-grading normalization
 from src.io.baker import generate_identity_lattice, export_to_cube
 
 app = FastAPI(title="HCGE Backend API - Hybrid Luma-Chroma Engine")
@@ -51,8 +58,9 @@ def compute_zoned_luma_mapper(
     src_img: np.ndarray, 
     ref_img: np.ndarray, 
     strength: float = 0.6,
-    shadow_treatment: str = 'preserve',
-    highlight_treatment: str = 'preserve'
+    shadow_method: str = 'linear',      # AI input: 'crush' | 'lift' | 'linear'
+    highlight_method: str = 'linear',   # AI input: 'roll' | 'hard' | 'linear'
+    contrast_volume: float = 1.0        # AI input: 0.8 (flat) to 1.5 (punchy)
 ) -> interp1d:
     """
     ENHANCED: Zone-based luma transfer function.
@@ -105,12 +113,22 @@ def compute_zoned_luma_mapper(
         src_mean, src_std = src_stats[name]
         ref_mean, ref_std = ref_stats[name]
         
-        # Zone-specific strength modifiers
+        # Zone-specific strength modifiers based on AI Director parameters
         zone_strength = strength
-        if name == 'shadow' and shadow_treatment == 'crush':
-            zone_strength = min(1.0, strength + 0.3)  # Crush blacks harder
-        elif name == 'highlight' and highlight_treatment == 'roll':
-            zone_strength = min(1.0, strength + 0.2)  # Roll off highlights
+        
+        # Shadow treatment from AI
+        if name == 'shadow':
+            if shadow_method == 'crush':
+                zone_strength = min(1.0, strength + 0.3)  # Crush blacks harder
+            elif shadow_method == 'lift':
+                zone_strength = max(0.2, strength - 0.2)  # Lift blacks (less matching)
+        
+        # Highlight treatment from AI
+        if name == 'highlight':
+            if highlight_method == 'roll':
+                zone_strength = min(1.0, strength + 0.2)  # Roll off highlights
+            elif highlight_method == 'hard':
+                zone_strength = min(1.0, strength + 0.1)  # Keep hard highlights
         
         # Apply normalized transfer for this zone
         zone_vals = l_values[mask]
@@ -121,6 +139,10 @@ def compute_zoned_luma_mapper(
         
         blended_mean = src_mean + (ref_mean - src_mean) * zone_strength
         blended_std = src_std + (ref_std - src_std) * zone_strength * 0.7
+        
+        # Apply contrast_volume to midtone slope
+        if name in ['lowmid', 'midtone', 'highmid']:
+            blended_std *= contrast_volume
         
         transferred = normalized * blended_std + blended_mean
         
@@ -254,10 +276,11 @@ def compute_chroma_tps(source_img: np.ndarray, ref_img: np.ndarray, n_clusters: 
 def compute_palette_based_tps(
     ref_img: np.ndarray, 
     palette_analysis: Dict = None,
-    semantic_hints: Dict = None
+    semantic_hints: Dict = None,
+    global_casts: Dict = None  # NEW: Direct input from ColorDirector
 ) -> Tuple[ThinPlateSpline, np.ndarray, np.ndarray, List[str], Dict]:
     """
-    NEW: Compute TPS from REFERENCE-ONLY palette analysis.
+    Compute TPS from REFERENCE-ONLY palette analysis.
     
     This doesn't assume source and reference have similar content.
     Instead, we extract HOW the colorist graded the reference:
@@ -266,10 +289,39 @@ def compute_palette_based_tps(
     - How are highlights colored?
     
     Then we apply that same transformation to ANY source image.
+    
+    NEW: If global_casts is provided (from ColorDirector), use those
+    explicit values instead of mathematical extraction.
     """
     from src.core.palette_extractor import PaletteExtractor, compute_tps_from_palette
     
-    # Extract palette from reference if not provided
+    # PRIORITY 1: Use explicit global_casts from ColorDirector if provided
+    if global_casts is not None:
+        print("  [Palette TPS] Using AI Director's explicit palette parameters")
+        source_pins, target_pins = create_palette_pins_from_casts(global_casts)
+        
+        # Generate labels
+        pin_labels = []
+        for i, (src, tgt) in enumerate(zip(source_pins, target_pins)):
+            L = src[0]
+            if L < 20:
+                pin_labels.append(f"Shadow_L{int(L)}")
+            elif L > 80:
+                pin_labels.append(f"Highlight_L{int(L)}")
+            else:
+                pin_labels.append(f"Mid_L{int(L)}")
+        
+        print(f"  [Palette TPS] Generated {len(source_pins)} pins from AI casts")
+        print(f"  [Palette TPS] Shadow cast: a={global_casts.get('shadow_cast', {}).get('a', 0):.1f}, b={global_casts.get('shadow_cast', {}).get('b', 0):.1f}")
+        print(f"  [Palette TPS] Highlight cast: a={global_casts.get('highlight_cast', {}).get('a', 0):.1f}, b={global_casts.get('highlight_cast', {}).get('b', 0):.1f}")
+        
+        # Fit TPS
+        tps = ThinPlateSpline(smoothing=0.01)
+        tps.fit(source_pins, target_pins)
+        
+        return tps, source_pins, target_pins, pin_labels, global_casts
+    
+    # FALLBACK: Extract palette from reference if no AI input
     if palette_analysis is None:
         extractor = PaletteExtractor(n_palette_colors=48)
         palette_analysis = extractor.analyze_reference(ref_img)
@@ -467,6 +519,8 @@ semantic_guide = SemanticGuide()
 color_scientist = ColorScientist()
 palette_extractor = PaletteExtractor()
 color_code_extractor = ColorCodeExtractor()
+color_director = ColorDirector()  # Agentic Colorist Director
+vibe_replicator = VibeReplicator()  # NEW: Agentic Vibe Replicator
 
 @app.post("/api/analyze")
 async def analyze_images(
@@ -475,10 +529,14 @@ async def analyze_images(
     skip_ai: bool = False
 ):
     """
-    Hybrid Luma-Chroma Analysis Pipeline (Compositional update):
-    1. COMPOSITION: LLM deconstructs reference into semantic color regions.
-    2. LUMA: Zone-based matching.
-    3. CHROMA: Codebook-based tinting or Palette TPS.
+    AGENTIC COLORIST PIPELINE - 4-Stage "Human Simulation" Workflow
+    
+    The AI Director generates explicit parameters for deterministic math functions:
+    1. NORMALIZATION: Balance exposure/WB before grading
+    2. TONE MAPPING: Define contrast curve (crush/lift/roll)
+    3. PALETTE EXTRACTION: Extract global color casts
+    4. SELECTIVE CORRECTION: Apply object-specific tweaks
+    5. BAKE: Generate final LUT
     """
     session_id = str(uuid.uuid4())
     session_dir = os.path.join(UPLOAD_DIR, session_id)
@@ -486,7 +544,6 @@ async def analyze_images(
 
     ref_path = os.path.join(session_dir, "ref.jpg")
     src_path = os.path.join(session_dir, "src.jpg")
-    # proxy_path is no longer strictly needed for generation but we keep for backward compatibility in session
     proxy_path = os.path.join(session_dir, "v1_baseline.png")
 
     try:
@@ -500,155 +557,161 @@ async def analyze_images(
         ref_img = load_image(ref_path)
         src_img = load_image(src_path)
         
-        print(f"\n{'='*50}")
-        print(f"Session {session_id}: HYBRID LUMA-CHROMA PIPELINE")
-        print(f"{'='*50}")
+        print(f"\n{'='*60}")
+        print(f"Session {session_id}: AGENTIC COLORIST PIPELINE")
+        print(f"{'='*60}")
+        
+        operations_log = []  # Human-readable log for frontend
+        
+        if not skip_ai:
+            # ============================================
+            # RUN FULL AI DIRECTOR ANALYSIS
+            # ============================================
+            director_results = color_director.analyze_full(src_img, ref_img)
+            
+            norm_params = director_results['normalization']
+            tone_params = director_results['tone_curve']
+            palette_params = director_results['palette_identity']
+            selective_params = director_results['selective_corrections']
+            operations_log = director_results['operations_log']
+        else:
+            # Skip AI - use neutral defaults
+            print("[SKIP_AI] Using neutral defaults")
+            from src.ai.director import NormalizationParams, ToneCurveParams, PaletteIdentityParams, SelectiveCorrectionParams
+            norm_params = NormalizationParams()
+            tone_params = ToneCurveParams()
+            palette_params = PaletteIdentityParams()
+            selective_params = SelectiveCorrectionParams()
+            operations_log = [{"stage": "info", "action": "AI analysis skipped - using neutral defaults", "params": {}}]
         
         # ============================================
-        # STEP 0: SEMANTIC COMPOSITION & ANALYSIS
+        # STAGE 1: NORMALIZATION (The Prep)
         # ============================================
-        print(f"\n[0/5] SEMANTIC ANALYSIS: Deconstructing image composition...")
+        print(f"\n[1/5] NORMALIZATION: Applying exposure/WB corrections...")
+        normalized_src = apply_normalization(src_img, norm_params.to_dict())
         
-        # 1. Analyze Source Image (Basic Zone Extraction)
-        # We don't need LLM for source, just simple luma zones
-        print("  Analyzing Source Image zones...")
-        src_codebook = color_code_extractor.extract_codebook(src_img, {})
-        
-        # 2. Analyze Reference Image (Deep Semantic Extraction)
-        # Use LLM to understand the *intent* of the reference colors
-        print("  Analyzing Reference Image with Semantic Guide...")
-        ref_composition = semantic_guide.analyze_composition(ref_img)
-        ref_codebook = color_code_extractor.extract_codebook(ref_img, ref_composition)
-        
-        # 3. Get Global Parameters (Luma, Saturation)
-        semantic_hints = semantic_guide.analyze_pair(src_img, ref_img)
-        luma_strength = semantic_hints.get('luma_strength', 0.6)
-        
-        print(f"  ✓ Source Zones: {list(src_codebook.keys())}")
-        print(f"  ✓ Target Zones: {list(ref_codebook.keys())}")
-        
+        # Save normalized source for debugging
+        normalized_path = os.path.join(session_dir, "normalized_src.png")
+        from src.io.loader import save_image
+        save_image(normalized_src, normalized_path)
         
         # ============================================
-        # STEP 1: LUMA ANCHOR (Zone-Based)
+        # STAGE 2: TONE MAPPING (The Skeleton)
         # ============================================
-        print(f"\n[1/5] LUMA ANCHOR: Zone-based histogram matching...")
+        print(f"\n[2/5] TONE MAPPING: Building luma curve with AI parameters...")
+        print(f"  Shadow method: {tone_params.shadow_method}")
+        print(f"  Highlight method: {tone_params.highlight_method}")
+        print(f"  Contrast volume: {tone_params.contrast_volume}")
+        
         luma_mapper = compute_zoned_luma_mapper(
-            src_img, ref_img, 
-            strength=luma_strength
+            normalized_src, ref_img,
+            strength=0.6,  # Base strength
+            shadow_method=tone_params.shadow_method,
+            highlight_method=tone_params.highlight_method,
+            contrast_volume=tone_params.contrast_volume
         )
         
+        # ============================================
+        # STAGE 3: PALETTE EXTRACTION (The Base Grade)
+        # ============================================
+        print(f"\n[3/5] PALETTE EXTRACTION: Building color cast TPS...")
+        
+        # Use AI-provided casts for the base TPS
+        global_casts = palette_params.to_dict()
+        
+        base_tps, base_pins_src, base_pins_tgt, pin_labels, palette_analysis = compute_palette_based_tps(
+            ref_img,
+            global_casts=global_casts
+        )
         
         # ============================================
-        # STEP 2: CHROMA WARP (Compositional Matching)
+        # STAGE 4: SELECTIVE CORRECTION (The Refinement)
         # ============================================
-        print(f"\n[2/5] CHROMA WARP: Mapping Source Zones -> Target Zones...")
+        print(f"\n[4/5] SELECTIVE CORRECTIONS: Applying object-specific tweaks...")
         
-        pins_source = []
-        pins_target = []
-        pin_labels = []
+        selective_ops = selective_params.to_dict()['operations']
         
-        # Define approximate L centers for zones to enable 3D warping
-        # This allows gradients (e.g. shadows=green, highlights=warm)
-        zone_centers = {
-            'shadow': 15,    # Deep shadows
-            'midtone': 50,   # Mid-gray
-            'highlight': 85  # Bright highlights
-        }
-        
-        # 1. Match primary zones (Shadow, Midtone, Highlight)
-        for zone in ['shadow', 'midtone', 'highlight']:
-            if zone in src_codebook and zone in ref_codebook:
-                s = src_codebook[zone]
-                t = ref_codebook[zone]
-                
-                # Create 3D pin: [L, a, b]
-                l_val = zone_centers.get(zone, 50)
-                pins_source.append([l_val, s['a'], s['b']])
-                pins_target.append([l_val, t['a'], t['b']])
-                
-                pin_labels.append(zone)
-                print(f"  Link: {zone.upper()} (L={l_val}, {s['a']:.1f},{s['b']:.1f}) -> ({t['a']:.1f},{t['b']:.1f})")
-
-        # 2. Add Global Tint anchor (Neutral -> Global Tint)
-        # Add anchors at multiple L levels to ensure global coverage
-        if 'global' in ref_codebook:
-             t = ref_codebook['global']
-             for l_val in [10, 50, 90]:
-                 pins_source.append([l_val, 0, 0]) # Neutral gray at L
-                 pins_target.append([l_val, t['a'], t['b']]) # Tinted gray at L
-             pin_labels.append("global_cast")
-             print(f"  Link: GLOBAL CAST (Neutrals) -> ({t['a']:.1f},{t['b']:.1f})")
-
-        # 3. Fit TPS
-        if len(pins_source) >= 3:
-            chroma_tps = ThinPlateSpline(smoothing=0.1) # Smooth warp
-            chroma_tps.fit(np.array(pins_source), np.array(pins_target))
-            print("  ✓ TPS fitted successfully")
+        if selective_ops:
+            # Apply selective shifts to the base pins
+            modified_pins = apply_selective_shifts(
+                base_pins_src, 
+                base_pins_tgt,
+                selective_ops
+            )
+            
+            final_pins_src = modified_pins['source']
+            final_pins_tgt = modified_pins['target']
+            
+            # Refit TPS with modified pins
+            final_tps = ThinPlateSpline(smoothing=0.01)
+            final_tps.fit(final_pins_src, final_pins_tgt)
+            
+            print(f"  Applied {len(selective_ops)} selective corrections")
         else:
-            print("  ⚠ Not enough pins for TPS, using identity")
-            chroma_tps = None 
-            
-            
-        # ============================================
-        # STEP 3: BASELINE (Legacy Support)
-        # ============================================
-        print(f"\n[3/5] BASELINE: Generated internal structures")
-        proxy_path = os.path.join(session_dir, "v1_baseline.png")
-        shutil.copy(src_path, proxy_path)
-        proxy_status = {"used": False}
-        
-        # Placeholder for palette analysis to keep data structure compliant
-        palette_analysis = {'palette': []}
+            # No selective corrections needed
+            final_tps = base_tps
+            final_pins_src = base_pins_src
+            final_pins_tgt = base_pins_tgt
+            print("  No selective corrections needed")
         
         # ============================================
-        # STEP 5: GENERATE VISUALIZATION DATA
+        # STAGE 5: GENERATE VISUALIZATION DATA
         # ============================================
-        print(f"\\n[5/5] Generating visualization lattice...")
+        print(f"\n[5/5] Generating visualization lattice...")
         viz_size = 10
         viz_lattice_rgb = generate_identity_lattice(size=viz_size)
         
         # Apply the hybrid grade to the visualization lattice
-        # Reshape lattice for Lab conversion
         lattice_img = viz_lattice_rgb.reshape(viz_size, viz_size * viz_size, 3)
         
         # For viz, we use identity luma mapping (just show chroma warp)
         identity_luma = interp1d([0, 100], [0, 100], kind='linear', 
                                  bounds_error=False, fill_value=(0, 100))
         
-        warped_lattice_img = apply_hybrid_grade(lattice_img, identity_luma, chroma_tps)
+        warped_lattice_img = apply_hybrid_grade(lattice_img, identity_luma, final_tps)
         warped_viz = warped_lattice_img.reshape(-1, 3)
         
-        # Prepare response with proxy status
+        # ============================================
+        # PREPARE RESPONSE
+        # ============================================
         response_data = {
             "session_id": session_id,
             "original_points": viz_lattice_rgb.tolist(),
             "warped_points": warped_viz.tolist(),
-            "pins_source": [],
-            "pins_target": [],
-            "proxy_status": proxy_status
+            "pins_source": final_pins_src.tolist() if isinstance(final_pins_src, np.ndarray) else final_pins_src,
+            "pins_target": final_pins_tgt.tolist() if isinstance(final_pins_tgt, np.ndarray) else final_pins_tgt,
+            "operations_log": operations_log,  # NEW: Human-readable AI decisions
+            "director_params": {
+                "normalization": norm_params.to_dict(),
+                "tone_curve": tone_params.to_dict(),
+                "palette_identity": palette_params.to_dict(),
+                "selective_corrections": selective_params.to_dict()
+            }
         }
         
         # Save session for later use
-        # Generate V1 preview for history
         session_data = {
             "ref_path": ref_path,
             "src_path": src_path,
+            "normalized_src_path": normalized_path,
             "proxy_path": proxy_path,
             "luma_mapper": luma_mapper,
-            "chroma_tps": chroma_tps,
-            "pins_src": pins_source,
-            "pins_tgt": pins_target,
+            "chroma_tps": final_tps,
+            "base_tps": base_tps,
+            "pins_src": final_pins_src.tolist() if isinstance(final_pins_src, np.ndarray) else final_pins_src,
+            "pins_tgt": final_pins_tgt.tolist() if isinstance(final_pins_tgt, np.ndarray) else final_pins_tgt,
             "pin_labels": pin_labels,
-            "semantic_hints": semantic_hints,
-            "composition": ref_composition,
-            "codebook": ref_codebook,
-            "src_codebook": src_codebook,
-            "v1_preview": None  # Will be set by preview endpoint
+            "operations_log": operations_log,
+            "director_params": response_data["director_params"],
+            "v1_preview": None
         }
         PipelineState.sessions[session_id] = session_data
         
-        print(f"\n✓ Analysis complete. Session: {session_id}")
-        print(f"{'='*50}\n")
+        # Copy source to proxy path for backward compatibility
+        shutil.copy(src_path, proxy_path)
+        
+        print(f"\n✓ Agentic Colorist pipeline complete. Session: {session_id}")
+        print(f"{'='*60}\n")
         
         return response_data
 
@@ -937,6 +1000,359 @@ async def refine_with_ai(session_id: str, max_rounds: int = 4):
         'history': refinement_history,
         'preview': f"data:image/jpeg;base64,{preview_b64}"
     }
+
+
+# ============================================================
+# AI-GUIDED RECIPE WORKFLOW
+# Alternative workflow using LLM-generated Color DNA recipes
+# ============================================================
+
+# Initialize AI-Guided Transfer engine
+ai_guided_engine = AIGuidedTransfer()
+
+
+@app.post("/api/analyze-ai")
+async def analyze_ai_recipe(
+    reference: UploadFile = File(...), 
+    source: UploadFile = File(...)
+):
+    """
+    AI-GUIDED WORKFLOW: Generate a Color DNA recipe from LLM analysis.
+    
+    The LLM analyzes both images and returns explicit transformation parameters:
+    - Exposure/brightness adjustments
+    - Global hue shifts (a/b channels)
+    - Non-linear curves for each channel
+    - Zone-specific tints (shadow/midtone/highlight)
+    """
+    session_id = str(uuid.uuid4())
+    session_dir = os.path.join(UPLOAD_DIR, session_id)
+    os.makedirs(session_dir, exist_ok=True)
+
+    ref_path = os.path.join(session_dir, "ref.jpg")
+    src_path = os.path.join(session_dir, "src.jpg")
+
+    try:
+        # Save uploaded files
+        with open(ref_path, "wb") as f:
+            shutil.copyfileobj(reference.file, f)
+        with open(src_path, "wb") as f:
+            shutil.copyfileobj(source.file, f)
+
+        # Load images
+        ref_img = load_image(ref_path)
+        src_img = load_image(src_path)
+        
+        print(f"\n{'='*60}")
+        print(f"Session {session_id}: AI-GUIDED RECIPE WORKFLOW")
+        print(f"{'='*60}")
+        
+        # Generate Color DNA recipe from LLM
+        recipe = ai_guided_engine.generate_recipe(src_img, ref_img)
+        
+        # Store session data
+        session_data = {
+            "workflow": "ai_recipe",
+            "ref_path": ref_path,
+            "src_path": src_path,
+            "recipe": recipe.to_dict(),
+            "recipe_history": [recipe.to_dict()],  # For undo/tracking
+        }
+        PipelineState.sessions[session_id] = session_data
+        
+        print(f"\n✓ AI Recipe generated. Session: {session_id}")
+        print(f"{'='*60}\n")
+        
+        return {
+            "session_id": session_id,
+            "recipe": recipe.to_dict(),
+            "workflow": "ai_recipe"
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"message": str(e)})
+
+
+@app.get("/api/preview-ai/{session_id}")
+async def preview_ai_recipe(session_id: str):
+    """
+    Apply the AI-generated Color DNA recipe to the source image.
+    Returns base64 encoded JPEG preview.
+    """
+    if session_id not in PipelineState.sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = PipelineState.sessions[session_id]
+    
+    if session.get("workflow") != "ai_recipe":
+        raise HTTPException(status_code=400, detail="Session is not an AI Recipe workflow")
+    
+    src_path = session['src_path']
+    recipe_dict = session['recipe']
+    
+    # Load source and apply recipe
+    src_img = load_image(src_path)
+    recipe = ColorRecipe.from_dict(recipe_dict)
+    graded_img = apply_ai_recipe(src_img, recipe)
+    
+    # Encode preview
+    graded_uint8 = (graded_img * 255).astype(np.uint8)
+    graded_bgr = cv2.cvtColor(graded_uint8, cv2.COLOR_RGB2BGR)
+    _, buffer = cv2.imencode('.jpg', graded_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    
+    import base64
+    b64_str = base64.b64encode(buffer).decode('utf-8')
+    preview_data = f"data:image/jpeg;base64,{b64_str}"
+    
+    return {"preview": preview_data, "recipe": recipe_dict}
+
+
+@app.post("/api/refine-ai/{session_id}")
+async def refine_ai_recipe(session_id: str, feedback: str = ""):
+    """
+    Refine the Color DNA recipe based on user feedback.
+    
+    User can say things like:
+    - "More green"
+    - "Desaturate the shadows"
+    - "Make it more contrasty"
+    - "Warmer highlights"
+    """
+    if session_id not in PipelineState.sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = PipelineState.sessions[session_id]
+    
+    if session.get("workflow") != "ai_recipe":
+        raise HTTPException(status_code=400, detail="Session is not an AI Recipe workflow")
+    
+    if not feedback:
+        raise HTTPException(status_code=400, detail="Feedback is required")
+    
+    ref_path = session['ref_path']
+    src_path = session['src_path']
+    current_recipe_dict = session['recipe']
+    
+    # Load images
+    ref_img = load_image(ref_path)
+    src_img = load_image(src_path)
+    
+    # Apply current recipe to get graded image for comparison
+    current_recipe = ColorRecipe.from_dict(current_recipe_dict)
+    graded_img = apply_ai_recipe(src_img, current_recipe)
+    
+    # Refine recipe via LLM
+    new_recipe = ai_guided_engine.refine_recipe(
+        current_recipe, ref_img, graded_img, feedback
+    )
+    
+    # Update session
+    session['recipe'] = new_recipe.to_dict()
+    session['recipe_history'].append(new_recipe.to_dict())
+    
+    # Generate new preview
+    new_graded = apply_ai_recipe(src_img, new_recipe)
+    graded_uint8 = (new_graded * 255).astype(np.uint8)
+    graded_bgr = cv2.cvtColor(graded_uint8, cv2.COLOR_RGB2BGR)
+    _, buffer = cv2.imencode('.jpg', graded_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    
+    import base64
+    b64_str = base64.b64encode(buffer).decode('utf-8')
+    preview_data = f"data:image/jpeg;base64,{b64_str}"
+    
+    return {
+        "session_id": session_id,
+        "recipe": new_recipe.to_dict(),
+        "preview": preview_data,
+        "feedback_applied": feedback
+    }
+
+
+@app.get("/api/download-ai/{session_id}")
+async def download_ai_lut(session_id: str):
+    """
+    Bake the AI-generated Color DNA recipe into a .cube LUT file.
+    
+    Applies the recipe to a neutral 33x33x33 HALD lattice.
+    """
+    if session_id not in PipelineState.sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = PipelineState.sessions[session_id]
+    
+    if session.get("workflow") != "ai_recipe":
+        raise HTTPException(status_code=400, detail="Session is not an AI Recipe workflow")
+    
+    recipe_dict = session['recipe']
+    recipe = ColorRecipe.from_dict(recipe_dict)
+    
+    lut_path = os.path.join(UPLOAD_DIR, session_id, "AI_Recipe_Grade.cube")
+    
+    # Bake recipe to HALD
+    size = 33
+    graded_lattice = ai_guided_engine.bake_to_hald(recipe, size=size)
+    
+    # Export to .cube
+    export_to_cube(graded_lattice, lut_path, size=size)
+    
+    return FileResponse(
+        lut_path, 
+        media_type='application/octet-stream', 
+        filename="AI_Recipe_Grade.cube"
+    )
+
+
+# =============================================================================
+# VIBE REPLICATOR WORKFLOW - Agentic LLM Colorist
+# =============================================================================
+
+@app.post("/api/analyze-vibe")
+async def analyze_vibe(
+    reference: UploadFile = File(...),
+    source: UploadFile = File(...)
+):
+    """
+    VIBE REPLICATOR WORKFLOW - Agentic LLM Colorist
+    
+    This workflow uses an agentic loop where the LLM:
+    1. Analyzes the reference's vibe and color grading
+    2. Generates professional colorist instructions
+    3. Applies the grade to the source
+    4. Self-critiques by comparing result to reference
+    5. Refines if not satisfied (up to 3 iterations)
+    """
+    session_id = str(uuid.uuid4())
+    session_dir = os.path.join(UPLOAD_DIR, session_id)
+    os.makedirs(session_dir, exist_ok=True)
+
+    ref_path = os.path.join(session_dir, "ref.jpg")
+    src_path = os.path.join(session_dir, "src.jpg")
+
+    try:
+        # Save uploaded files
+        with open(ref_path, "wb") as f:
+            shutil.copyfileobj(reference.file, f)
+        with open(src_path, "wb") as f:
+            shutil.copyfileobj(source.file, f)
+
+        # Load images
+        ref_img = load_image(ref_path)
+        src_img = load_image(src_path)
+        
+        print(f"\n{'='*60}")
+        print(f"Session {session_id}: VIBE REPLICATOR PIPELINE")
+        print(f"{'='*60}")
+        
+        # Run the full agentic pipeline
+        result = vibe_replicator.run_full_pipeline(src_img, ref_img, max_iterations=3)
+        
+        # Store session data
+        session_data = {
+            "workflow": "vibe_replicator",
+            "ref_path": ref_path,
+            "src_path": src_path,
+            "vibe_analysis": result['vibe_analysis'].to_dict(),
+            "final_instructions": result['final_instructions'].to_dict(),
+            "graded_image": result['graded_image'],
+            "critique_history": [c.to_dict() for c in result['critique_history']],
+            "iterations": result['iterations']
+        }
+        PipelineState.sessions[session_id] = session_data
+        
+        print(f"\n✓ Vibe Replicator complete. Session: {session_id}")
+        print(f"  Iterations: {result['iterations']}")
+        print(f"  Final score: {result['critique_history'][-1].vibe_match_score}/10")
+        print(f"{'='*60}\n")
+        
+        return {
+            "session_id": session_id,
+            "workflow": "vibe_replicator",
+            "vibe_analysis": result['vibe_analysis'].to_dict(),
+            "final_instructions": result['final_instructions'].to_dict(),
+            "critique_history": [c.to_dict() for c in result['critique_history']],
+            "iterations": result['iterations'],
+            "final_score": result['critique_history'][-1].vibe_match_score
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"message": str(e)})
+
+
+@app.get("/api/preview-vibe/{session_id}")
+async def preview_vibe_result(session_id: str):
+    """
+    Get the graded preview from the Vibe Replicator workflow.
+    Returns base64 encoded JPEG preview.
+    """
+    if session_id not in PipelineState.sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = PipelineState.sessions[session_id]
+    
+    if session.get("workflow") != "vibe_replicator":
+        raise HTTPException(status_code=400, detail="Session is not a Vibe Replicator workflow")
+    
+    graded_img = session['graded_image']
+    
+    # The graded image is already in float32 0-1 range
+    graded_uint8 = (np.clip(graded_img, 0, 1) * 255).astype(np.uint8)
+    graded_bgr = cv2.cvtColor(graded_uint8, cv2.COLOR_RGB2BGR)
+    _, buffer = cv2.imencode('.jpg', graded_bgr, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    
+    import base64
+    b64_str = base64.b64encode(buffer).decode('utf-8')
+    preview_data = f"data:image/jpeg;base64,{b64_str}"
+    
+    return {
+        "preview": preview_data,
+        "vibe_analysis": session['vibe_analysis'],
+        "final_instructions": session['final_instructions']
+    }
+
+
+@app.get("/api/download-vibe/{session_id}")
+async def download_vibe_lut(session_id: str):
+    """
+    Bake the Vibe Replicator grading instructions into a .cube LUT file.
+    
+    Applies the instructions to a neutral 33x33x33 HALD lattice.
+    """
+    if session_id not in PipelineState.sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = PipelineState.sessions[session_id]
+    
+    if session.get("workflow") != "vibe_replicator":
+        raise HTTPException(status_code=400, detail="Session is not a Vibe Replicator workflow")
+    
+    instructions_dict = session['final_instructions']
+    instructions = GradingInstructions.from_dict(instructions_dict)
+    
+    lut_path = os.path.join(UPLOAD_DIR, session_id, "Vibe_Replicator_Grade.cube")
+    
+    # Generate 33x33x33 identity lattice
+    size = 33
+    lattice_rgb = generate_identity_lattice(size=size)
+    
+    # Reshape for processing (treat as image)
+    lattice_img = lattice_rgb.reshape(size, size * size, 3)
+    
+    # Apply grading instructions
+    graded_lattice_img = apply_grading_instructions(lattice_img, instructions)
+    graded_lattice = graded_lattice_img.reshape(-1, 3)
+    
+    # Export to .cube
+    export_to_cube(graded_lattice, lut_path, size=size)
+    
+    return FileResponse(
+        lut_path, 
+        media_type='application/octet-stream', 
+        filename="Vibe_Replicator_Grade.cube"
+    )
 
 
 if __name__ == "__main__":

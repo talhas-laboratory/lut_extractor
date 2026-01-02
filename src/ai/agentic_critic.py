@@ -16,10 +16,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # OpenRouter configuration
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 # Using gemini-2.0-flash-thinking-preview or similar for high reasoning if gemini-3-pro isn't available yet in OpenRouter
 # But following user's spec: gemini-3-pro-preview
-OPENROUTER_MODEL = "google/gemini-pro-1.5-exp" # Placeholder if gemini-3-pro-preview is not in OpenRouter yet, adhering to "2025 landscape" logic
+OPENROUTER_MODEL = "google/gemini-3-pro-preview"
 # However, the user explicitly asked for gemini-3-pro-preview. I will use that identifier.
 OPENROUTER_MODEL_SPEC = "google/gemini-3-pro-preview" 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -116,7 +116,8 @@ class AgenticCritic:
             "reasoning": {
                 "effort": "high"
             },
-            "include_reasoning": True
+            "include_reasoning": True,
+            "max_tokens": 4000
         }
 
 
@@ -126,16 +127,30 @@ class AgenticCritic:
                 OPENROUTER_URL,
                 headers=self.headers,
                 json=payload,
-                timeout=90
+                timeout=120
             )
 
             response.raise_for_status()
             
             result = response.json()
-            content = result['choices'][0]['message']['content']
+            if 'choices' not in result or not result['choices']:
+                print(f"[CRITIC] ERROR: Unexpected response format: {result}")
+                return pins_json, "API returned unexpected format", False
+                
+            content = result['choices'][0]['message'].get('content', '').strip()
+            
+            if not content:
+                print(f"[CRITIC] ERROR: Empty response content. Reasoning likely exhausted tokens. Full JSON: {result}")
+                return pins_json, "AI returned empty response (token limit?)", False
             
             # Parse the JSON response
-            data = json.loads(content)
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError as e:
+                print(f"[CRITIC] JSON parse error: {e}")
+                print(f"[CRITIC] Response was: {content}")
+                return pins_json, "Failed to parse AI optimization", False
+                
             optimized_pins = data.get('optimized_pins', pins_json)
             feedback = data.get('feedback', "Optimization complete.")
             satisfied = data.get('satisfied', False) # Optional from AI

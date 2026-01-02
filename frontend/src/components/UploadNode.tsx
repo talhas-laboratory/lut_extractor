@@ -1,7 +1,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Check, File as FileIcon } from 'lucide-react';
+import { Upload, Check } from 'lucide-react';
 import clsx from 'clsx';
 
 interface UploadNodeProps {

@@ -13,6 +13,7 @@ import requests
 import json
 import base64
 import io
+import os  # Added import os
 import numpy as np
 from PIL import Image
 from typing import Dict, Optional
@@ -20,8 +21,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENROUTER_API_KEY = "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"
-OPENROUTER_MODEL = "google/gemini-2.0-flash-001"  # Fast model for pre-analysis
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = "google/gemini-3-pro-preview"  # Fast model for pre-analysis
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
@@ -130,13 +131,13 @@ Respond ONLY with valid JSON, no markdown or extra text."""
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": prompt + "\n\nIMPORTANT: Keep reasoning concise. Respond only with JSON."},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{src_b64}"}},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{ref_b64}"}}
                     ]
                 }
             ],
-            "max_tokens": 800,
+            "max_tokens": 4000,
             "temperature": 0.2
         }
         
@@ -146,12 +147,20 @@ Respond ONLY with valid JSON, no markdown or extra text."""
                 OPENROUTER_URL,
                 headers=self.headers,
                 json=payload,
-                timeout=30
+                timeout=90
             )
             response.raise_for_status()
             
             result = response.json()
-            content = result['choices'][0]['message']['content'].strip()
+            if 'choices' not in result or not result['choices']:
+                print(f"[GUIDE] ERROR: Unexpected response format: {result}")
+                return {}
+                
+            content = result['choices'][0]['message'].get('content', '').strip()
+            
+            if not content:
+                print(f"[GUIDE] ERROR: Empty response content. Reasoning likely exhausted tokens. Full JSON: {result}")
+                return {}
             
             # Clean markdown if present
             if content.startswith('```'):

@@ -19,8 +19,8 @@ import re
 load_dotenv()
 
 # OpenRouter configuration 
-OPENROUTER_API_KEY = "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"
-OPENROUTER_MODEL = "google/gemini-3-pro-image-preview"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = "google/gemini-3-pro-preview"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 

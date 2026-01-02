@@ -20,8 +20,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # OpenRouter configuration
-OPENROUTER_API_KEY = "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"
-OPENROUTER_MODEL = "google/gemini-3-flash-preview"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = "google/gemini-3-pro-preview"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
@@ -127,7 +127,9 @@ EXAMPLES:
 
 Be MORE AGGRESSIVE with adjustments - changes of 5-15 units for tints are appropriate.
 
-Respond ONLY with valid JSON, no markdown code blocks."""
+Keep your reasoning or thought process concise. 
+Respond ONLY with valid JSON, no markdown code blocks.
+"""
 
         payload = {
             "model": self.model,
@@ -147,7 +149,7 @@ Respond ONLY with valid JSON, no markdown code blocks."""
                     ]
                 }
             ],
-            "max_tokens": 1000,
+            "max_tokens": 4000,
             "temperature": 0.3
         }
 
@@ -162,14 +164,28 @@ Respond ONLY with valid JSON, no markdown code blocks."""
             response.raise_for_status()
             
             result_json = response.json()
-            response_text = result_json['choices'][0]['message']['content'].strip()
+            
+            if 'choices' not in result_json or not result_json['choices']:
+                print(f"  ERROR: Unexpected response format from OpenRouter: {result_json}")
+                return current_params, "API returned unexpected format", False
+                
+            response_text = result_json['choices'][0]['message'].get('content', '').strip()
+            
+            if not response_text:
+                print(f"  ERROR: Empty content in OpenRouter response. Full JSON: {result_json}")
+                return current_params, "AI returned empty response", False
             
             # Clean up response if it has markdown code blocks
             if response_text.startswith('```'):
                 lines = response_text.split('\n')
                 response_text = '\n'.join(lines[1:-1] if lines[-1] == '```' else lines[1:])
             
-            result = json.loads(response_text)
+            try:
+                result = json.loads(response_text)
+            except json.JSONDecodeError as e:
+                print(f"  JSON parse error: {e}")
+                print(f"  Response text was: {response_text}")
+                return current_params, f"Failed to parse AI response", False
             
             # Extract components
             adjustments = result.get('adjustments', {})
@@ -207,17 +223,13 @@ Respond ONLY with valid JSON, no markdown code blocks."""
             
             print(f"  AI Feedback: {feedback}")
             print(f"  Satisfied: {satisfied}")
-            print(f"  New params: {json.dumps(new_params, indent=2)}")
+            # print(f"  New params: {json.dumps(new_params, indent=2)}")
             
             return new_params, feedback, satisfied
             
         except requests.exceptions.RequestException as e:
             print(f"OpenRouter API error: {e}")
             return current_params, f"API request failed: {str(e)}", False
-        except json.JSONDecodeError as e:
-            print(f"JSON parse error: {e}")
-            print(f"Response was: {response_text[:500] if 'response_text' in dir() else 'N/A'}")
-            return current_params, f"Failed to parse AI response", False
         except Exception as e:
             print(f"Error in AI analysis: {e}")
             import traceback
